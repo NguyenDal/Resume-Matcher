@@ -1,10 +1,6 @@
 import React from "react";
 import ResumeMatcher from "./ResumeMatcher";
 
-const App = () => {
-  return (
-    <ResumeMatcher />
-  );
-};
+const App = () => <ResumeMatcher />;
 
 export default App;

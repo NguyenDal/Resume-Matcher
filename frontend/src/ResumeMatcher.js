@@ -6,6 +6,7 @@ const ResumeMatcher = () => {
   const [jobDesc, setJobDesc] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [expandedIdx, setExpandedIdx] = useState(null);
 
   const handleFileChange = (e) => {
     setResumeFile(e.target.files[0]);
@@ -43,11 +44,9 @@ const ResumeMatcher = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-100 to-purple-200">
-      {/* Remove the red test box after verifying */}
-      {/* <div className="bg-red-500 text-white p-8">If you see this in red, Tailwind is working!</div> */}
       <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full">
         <h1 className="text-3xl font-bold text-center text-blue-600 mb-2">Resume Job Matching</h1>
-        <h2 className="text-lg text-center text-gray-700 mb-6">Resume &amp; Job Description Matcher</h2>
+        <h2 className="text-lg text-center text-gray-700 mb-6">AI-Powered Fit Analysis & Q&amp;A</h2>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block font-semibold text-gray-700 mb-1">
@@ -71,7 +70,7 @@ const ResumeMatcher = () => {
               Paste Job Description:
             </label>
             <textarea
-              rows={6}
+              rows={7}
               value={jobDesc}
               onChange={handleJobDescChange}
               placeholder="Paste the job description here..."
@@ -96,17 +95,77 @@ const ResumeMatcher = () => {
                 <div className="mb-2">
                   <span className="font-semibold">Match Score:</span>{" "}
                   <span className="text-2xl font-bold">
-                    {(result.scores?.[0] * 100).toFixed(1)}%
+                    {result.scores?.[0] !== undefined
+                      ? (result.scores[0] * 100).toFixed(1) + "%"
+                      : "N/A"}
                   </span>
                 </div>
-                <div>
-                  <span className="font-semibold">Labels:</span>{" "}
-                  {result.labels?.join(", ")}
+                {/* Score Explanation */}
+                <div className="mb-4">
+                  <span className="font-semibold">Why this score?</span>
+                  <p className="text-gray-800 whitespace-pre-line mt-1">{result.score_reason}</p>
                 </div>
-                <details className="mt-2">
-                  <summary className="cursor-pointer font-semibold">Show Keywords</summary>
-                  <div className="mt-1 text-sm text-gray-700 break-words">{result.sequence}</div>
-                </details>
+
+                {/* Met Requirements - Green */}
+                {Array.isArray(result.met_requirements) && result.met_requirements.length > 0 && (
+                  <div className="mb-2">
+                    <div className="font-semibold text-green-700 mb-2">You meet these requirements:</div>
+                    <div className="flex flex-col gap-2">
+                      {result.met_requirements.map((req, idx) => (
+                        <div
+                          key={idx}
+                          className="border border-green-400 bg-green-50 text-green-900 rounded-lg p-3 font-medium"
+                        >
+                          {req}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Missing Requirements - Red */}
+                {Array.isArray(result.missing_requirements) && result.missing_requirements.length > 0 && (
+                  <div className="mb-2">
+                    <div className="font-semibold text-red-700 mb-2">You don't meet these requirements:</div>
+                    <div className="flex flex-col gap-2">
+                      {result.missing_requirements.map((req, idx) => (
+                        <div
+                          key={idx}
+                          className="border border-red-400 bg-red-50 text-red-900 rounded-lg p-3 font-medium"
+                        >
+                          {req}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* AI Suggested Questions */}
+                {Array.isArray(result.ai_suggestions) && result.ai_suggestions.length > 0 && (
+                  <>
+                    <div className="font-semibold text-blue-700 mb-2">
+                      AI-Powered Fit Questions:
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      {result.ai_suggestions.map((q, idx) => (
+                        <div key={idx} className="border border-blue-300 rounded-lg bg-white">
+                          <button
+                            type="button"
+                            className="w-full text-left p-3 font-medium text-blue-600 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200 rounded-t-lg transition"
+                            onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}
+                          >
+                            {q.question}
+                          </button>
+                          {expandedIdx === idx && (
+                            <div className="px-4 pb-4 pt-1 text-gray-800 bg-blue-50 rounded-b-lg border-t border-blue-200">
+                              {q.answer}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>
