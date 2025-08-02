@@ -7,16 +7,15 @@ import re
 import json
 from dotenv import load_dotenv
 
-import nltk
-try:
-    nltk.data.find("corpora/stopwords")
-except LookupError:
-    nltk.download("stopwords")
-from nltk.corpus import stopwords
+from sentence_transformers import SentenceTransformer, util
 
+# Load .env variables
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
 client = openai.OpenAI(api_key=openai_api_key)
+
+# Load Sentence Transformer model
+semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 app = FastAPI()
 
@@ -41,67 +40,26 @@ def extract_text(file: UploadFile):
     else:
         return file.file.read().decode("utf-8", errors="ignore")
 
-def match_score(resume_text, job_text):
-    stop_words = set(stopwords.words('english'))
-    job_words = set(w.lower() for w in re.findall(r"\w+", job_text) if len(w) > 2 and w.lower() not in stop_words)
-    resume_words = set(w.lower() for w in re.findall(r"\w+", resume_text) if len(w) > 2 and w.lower() not in stop_words)
-    overlap = job_words.intersection(resume_words)
-    important_overlap = [w for w in overlap if not w.isnumeric()]
-    if not job_words:
-        return 0.0, []
-    score = len(important_overlap) / len(job_words)
-    return score, important_overlap
+def ai_match_score(resume_text, job_text):
+    emb_resume = semantic_model.encode(resume_text)
+    emb_job = semantic_model.encode(job_text)
+    score = float(util.cos_sim(emb_resume, emb_job).item())
+    return score
 
 def check_hard_rules(job_text, resume_text):
     rules = [
-        {
-            "rule": r"(driver.?s license|driving license|valid license)",
-            "desc": "Driver's license required"
-        },
-        {
-            "rule": r"([1-9]\+?|one|two|three|four|five|six|seven|eight|nine|ten) ?(year[s]? of experience|years' experience|years experience|yrs experience|yrs. experience)",
-            "desc": "Required years of experience"
-        },
-        {
-            "rule": r"(bachelor('|s)? degree|university degree|college degree|high school diploma|associate degree|phd|master('|s)? degree)",
-            "desc": "Education requirement (degree/diploma/certificate)"
-        },
-        {
-            "rule": r"(certified|certification|certificate in [\w ]+|license required|trade certification|comp.?tia|cisco|aws certified|pmp|scrum master|red hat)",
-            "desc": "Certification required"
-        },
-        {
-            "rule": r"(english|french|spanish|bilingual|language: [\w]+)",
-            "desc": "Language requirement"
-        },
-        {
-            "rule": r"(must be (a )?canadian citizen|permanent resident|work permit|work authorization|legally authorized to work)",
-            "desc": "Work eligibility/authorization"
-        },
-        {
-            "rule": r"(remote|work from home|hybrid|on[- ]?site|in[- ]?office)",
-            "desc": "Work location type (remote/hybrid/onsite)"
-        },
-        {
-            "rule": r"(relocate|relocation required|relocation assistance)",
-            "desc": "Relocation required"
-        },
-        {
-            "rule": r"(travel required|must travel|local travel|occasional travel)",
-            "desc": "Travel requirement"
-        },
-        {
-            "rule": r"(evening|night|weekend|overtime|shift work|rotating shift)",
-            "desc": "Special schedule requirement"
-        },
-        {
-            "rule": r"(must be able to lift|lifting up to|exerting up to \d+ pounds|physical requirement)",
-            "desc": "Physical ability requirement"
-        },
-        {
-            "rule": r"(background check|criminal record check|security clearance)",
-            "desc": "Background or security check required"
-        },
+        {"rule": r"(driver.?s license|driving license|valid license)", "desc": "Driver's license required"},
+        {"rule": r"([1-9]\+?|one|two|three|four|five|six|seven|eight|nine|ten) ?(year[s]? of experience|years' experience|years experience|yrs experience|yrs. experience)", "desc": "Required years of experience"},
+        {"rule": r"(bachelor('|s)? degree|university degree|college degree|high school diploma|associate degree|phd|master('|s)? degree)", "desc": "Education requirement (degree/diploma/certificate)"},
+        {"rule": r"(certified|certification|certificate in [\w ]+|license required|trade certification|comp.?tia|cisco|aws certified|pmp|scrum master|red hat)", "desc": "Certification required"},
+        {"rule": r"(english|french|spanish|bilingual|language: [\w]+)", "desc": "Language requirement"},
+        {"rule": r"(must be (a )?canadian citizen|permanent resident|work permit|work authorization|legally authorized to work)", "desc": "Work eligibility/authorization"},
+        {"rule": r"(remote|work from home|hybrid|on[- ]?site|in[- ]?office)", "desc": "Work location type (remote/hybrid/onsite)"},
+        {"rule": r"(relocate|relocation required|relocation assistance)", "desc": "Relocation required"},
+        {"rule": r"(travel required|must travel|local travel|occasional travel)", "desc": "Travel requirement"},
+        {"rule": r"(evening|night|weekend|overtime|shift work|rotating shift)", "desc": "Special schedule requirement"},
+        {"rule": r"(must be able to lift|lifting up to|exerting up to \d+ pounds|physical requirement)", "desc": "Physical ability requirement"},
+        {"rule": r"(background check|criminal record check|security clearance)", "desc": "Background or security check required"},
     ]
     results = []
     resume_text_lc = resume_text.lower()
@@ -115,20 +73,24 @@ def check_hard_rules(job_text, resume_text):
             })
     return results
 
-def explain_score(hard_rules, overlap, job_text, resume_text):
-    if not hard_rules:
-        return "No specific hard requirements found in the job posting."
-
-    met = [r["requirement"] for r in hard_rules if r["met"]]
-    not_met = [r["requirement"] for r in hard_rules if not r["met"]]
-
-    msg = ""
-    if met:
-        msg += "You meet the following key requirements: " + ", ".join(met) + ". "
-    if not_met:
-        msg += "You are missing: " + ", ".join(not_met) + ". "
-    return msg.strip()
-
+def get_requirement_explanation(requirement, job_desc, resume_text):
+    prompt = (
+        f"Job Description:\n{job_desc}\n\n"
+        f"Resume:\n{resume_text}\n\n"
+        f"Requirement: {requirement}\n\n"
+        "Explain in 2-3 lines, for a candidate, what this requirement means for this job. "
+        "If possible, provide concrete examples or clarify why it's important in this context."
+    )
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=150,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return "Explanation temporarily unavailable."
 
 def safe_json_parse(content):
     match = re.search(r'\[\s*{.*}\s*\]', content, re.DOTALL)
@@ -182,26 +144,31 @@ async def upload_resume(
         resume_text = extract_text(resume)
         job_text = job_description
 
-        score, overlap = match_score(resume_text, job_text)
+        score = ai_match_score(resume_text, job_text)
         hard_rules = check_hard_rules(job_text, resume_text)
-        score_reason = explain_score(hard_rules, overlap, job_text, resume_text)
         suggestions = get_ai_suggestions(job_text, resume_text)
 
         met_requirements = [r["requirement"] for r in hard_rules if r["met"]]
         missing_requirements = [r["requirement"] for r in hard_rules if not r["met"]]
 
+        # AI explanations for each requirement
+        requirement_explanations = {}
+        for r in hard_rules:
+            req = r["requirement"]
+            requirement_explanations[req] = get_requirement_explanation(req, job_text, resume_text)
+
         return {
             "scores": [score],
-            "score_reason": score_reason,
             "met_requirements": met_requirements,
             "missing_requirements": missing_requirements,
+            "requirement_explanations": requirement_explanations,
             "ai_suggestions": suggestions,
         }
     except Exception as e:
         return {
             "scores": [0.0],
-            "score_reason": f"Error: {str(e)}",
             "met_requirements": [],
             "missing_requirements": [],
+            "requirement_explanations": {},
             "ai_suggestions": [{"question": "Error", "answer": str(e)}],
         }

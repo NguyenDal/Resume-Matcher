@@ -6,16 +6,112 @@ const ResumeMatcher = () => {
   const [jobDesc, setJobDesc] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [expandedIdx, setExpandedIdx] = useState(null);
+  const [expandedReq, setExpandedReq] = useState(null);
+  const [userMet, setUserMet] = useState([]);
+  const [userMissing, setUserMissing] = useState([]);
+
+  // Original met/missing requirements (from AI)
+  const originalMet = result?.met_requirements || [];
+  const originalMissing = result?.missing_requirements || [];
+
+  // Calculate the effective met/missing requirements based on backend + user toggles
+  const effectiveMet = [
+    ...originalMet,
+    ...userMet.filter(req => !originalMet.includes(req)),
+  ].filter(req => !userMissing.includes(req));
+  const effectiveMissing = [
+    ...originalMissing,
+    ...userMissing.filter(req => !originalMissing.includes(req)),
+  ].filter(req => !userMet.includes(req));
+
+  // Unique full requirement list
+  const allRequirements = [...originalMet, ...originalMissing].filter(
+    (v, i, a) => a.indexOf(v) === i
+  );
+  const requirementsMetCount = effectiveMet.length;
+  const requirementsTotal = allRequirements.length;
+  const requirementsMetScore =
+    requirementsTotal > 0
+      ? ((requirementsMetCount / requirementsTotal) * 100).toFixed(1)
+      : "N/A";
+
+  // Render expandable requirement box (works for both met and missing)
+  const renderRequirementBox = (req, isMet) => (
+    <div
+      key={req}
+      className={`border ${
+        isMet
+          ? "border-green-400 bg-green-50 text-green-900"
+          : "border-red-400 bg-red-50 text-red-900"
+      } rounded-lg p-0 font-medium`}
+    >
+      <button
+        className="w-full text-left p-3 font-medium focus:outline-none"
+        onClick={() => setExpandedReq(expandedReq === req ? null : req)}
+      >
+        {req}
+      </button>
+      {expandedReq === req && (
+        <div
+          className={`px-4 pb-4 pt-1 text-gray-800 ${
+            isMet
+              ? "bg-green-50 border-t border-green-200"
+              : "bg-red-50 border-t border-red-200"
+          } rounded-b-lg`}
+        >
+          <div className="mb-2">
+            {result.requirement_explanations?.[req] || "Loading explanation..."}
+          </div>
+          <div className="flex gap-2">
+            <button
+              className="px-3 py-1 rounded bg-green-200 text-green-800 hover:bg-green-300 font-semibold"
+              onClick={() => {
+                // Move to met
+                setUserMet(prev => Array.from(new Set([...prev, req])));
+                setUserMissing(prev => prev.filter(x => x !== req));
+                setExpandedReq(null);
+              }}
+            >
+              Yes, I meet this
+            </button>
+            <button
+              className="px-3 py-1 rounded bg-red-200 text-red-800 hover:bg-red-300 font-semibold"
+              onClick={() => {
+                // Move to missing
+                setUserMissing(prev => Array.from(new Set([...prev, req])));
+                setUserMet(prev => prev.filter(x => x !== req));
+                setExpandedReq(null);
+              }}
+            >
+              No, I don’t
+            </button>
+          </div>
+          {/* Optionally show this: */}
+          {originalMet.includes(req) && (
+            <div className="mt-2 text-xs text-gray-500 italic">
+            </div>
+          )}
+          {originalMissing.includes(req) && (
+            <div className="mt-2 text-xs text-gray-500 italic">
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   const handleFileChange = (e) => {
     setResumeFile(e.target.files[0]);
     setResult(null);
+    setUserMet([]);
+    setUserMissing([]);
   };
 
   const handleJobDescChange = (e) => {
     setJobDesc(e.target.value);
     setResult(null);
+    setUserMet([]);
+    setUserMissing([]);
   };
 
   const handleSubmit = async (e) => {
@@ -24,7 +120,6 @@ const ResumeMatcher = () => {
       alert("Please upload your resume and paste the job description.");
       return;
     }
-
     setLoading(true);
     const formData = new FormData();
     formData.append("resume", resumeFile);
@@ -35,6 +130,8 @@ const ResumeMatcher = () => {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setResult(res.data);
+      setUserMet([]);
+      setUserMissing([]);
     } catch (err) {
       setResult({ error: "There was a problem processing your request." });
     } finally {
@@ -92,55 +189,35 @@ const ResumeMatcher = () => {
               <div className="text-red-500">{result.error}</div>
             ) : (
               <>
-                <div className="mb-2">
+                {/* Match Score */}
+                <div className="mb-4">
                   <span className="font-semibold">Match Score:</span>{" "}
-                  <span className="text-2xl font-bold">
-                    {result.scores?.[0] !== undefined
-                      ? (result.scores[0] * 100).toFixed(1) + "%"
-                      : "N/A"}
+                  <span className="text-2xl font-bold text-green-700">
+                    {requirementsMetScore}%
+                  </span>
+                  <span className="ml-2 text-xs text-gray-500">
+                    ({requirementsMetCount} of {requirementsTotal})
                   </span>
                 </div>
-                {/* Score Explanation */}
-                <div className="mb-4">
-                  <span className="font-semibold">Why this score?</span>
-                  <p className="text-gray-800 whitespace-pre-line mt-1">{result.score_reason}</p>
-                </div>
-
-                {/* Met Requirements - Green */}
-                {Array.isArray(result.met_requirements) && result.met_requirements.length > 0 && (
+                {/* Met Requirements */}
+                {Array.isArray(effectiveMet) && effectiveMet.length > 0 && (
                   <div className="mb-2">
                     <div className="font-semibold text-green-700 mb-2">You meet these requirements:</div>
                     <div className="flex flex-col gap-2">
-                      {result.met_requirements.map((req, idx) => (
-                        <div
-                          key={idx}
-                          className="border border-green-400 bg-green-50 text-green-900 rounded-lg p-3 font-medium"
-                        >
-                          {req}
-                        </div>
-                      ))}
+                      {effectiveMet.map((req) => renderRequirementBox(req, true))}
                     </div>
                   </div>
                 )}
-
-                {/* Missing Requirements - Red */}
-                {Array.isArray(result.missing_requirements) && result.missing_requirements.length > 0 && (
+                {/* Missing Requirements */}
+                {Array.isArray(effectiveMissing) && effectiveMissing.length > 0 && (
                   <div className="mb-2">
                     <div className="font-semibold text-red-700 mb-2">You don't meet these requirements:</div>
                     <div className="flex flex-col gap-2">
-                      {result.missing_requirements.map((req, idx) => (
-                        <div
-                          key={idx}
-                          className="border border-red-400 bg-red-50 text-red-900 rounded-lg p-3 font-medium"
-                        >
-                          {req}
-                        </div>
-                      ))}
+                      {effectiveMissing.map((req) => renderRequirementBox(req, false))}
                     </div>
                   </div>
                 )}
-
-                {/* AI Suggested Questions */}
+                {/* AI Suggestions */}
                 {Array.isArray(result.ai_suggestions) && result.ai_suggestions.length > 0 && (
                   <>
                     <div className="font-semibold text-blue-700 mb-2">
@@ -152,11 +229,11 @@ const ResumeMatcher = () => {
                           <button
                             type="button"
                             className="w-full text-left p-3 font-medium text-blue-600 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-200 rounded-t-lg transition"
-                            onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}
+                            onClick={() => setExpandedReq(expandedReq === "ai_" + idx ? null : "ai_" + idx)}
                           >
                             {q.question}
                           </button>
-                          {expandedIdx === idx && (
+                          {expandedReq === "ai_" + idx && (
                             <div className="px-4 pb-4 pt-1 text-gray-800 bg-blue-50 rounded-b-lg border-t border-blue-200">
                               {q.answer}
                             </div>
