@@ -1,10 +1,11 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 import PyPDF2
+import spacy
 
 app = FastAPI()
 
-# Allow local frontend
+# CORS setup
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -12,6 +13,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Load spaCy model globally (only once)
+nlp = spacy.load("en_core_web_sm")
 
 def extract_text_from_pdf(file):
     pdf_reader = PyPDF2.PdfReader(file)
@@ -27,19 +31,29 @@ def extract_text(file: UploadFile):
         # Assume text file
         return file.file.read().decode("utf-8", errors="ignore")
 
-def match_score(resume_text, job_text):
-    # Simple match: percent of job keywords found in resume
-    import re
-    from collections import Counter
+def extract_technical_keywords(text: str):
+    """
+    Extracts technical/noun/proper-noun keywords using spaCy.
+    Returns only unique capitalized or all-uppercase words.
+    """
+    doc = nlp(text)
+    keywords = set()
+    for token in doc:
+        if token.pos_ in {"NOUN", "PROPN"} and len(token.text) > 2 and not token.is_stop:
+            keywords.add(token.text)
+    for ent in doc.ents:
+        if ent.label_ in {"ORG", "PRODUCT", "LANGUAGE"}:
+            keywords.add(ent.text)
+    # Only return technical/capitalized/all-uppercase tokens
+    return {k for k in keywords if k[0].isupper() or k.isupper()}
 
-    job_words = set(re.findall(r"\w+", job_text.lower()))
-    resume_words = set(re.findall(r"\w+", resume_text.lower()))
-    overlap = job_words.intersection(resume_words)
-    if not job_words:
+def match_score(resume_keywords, job_keywords):
+    overlap = resume_keywords & job_keywords
+    union = resume_keywords | job_keywords
+    if not union:
         return 0.0, []
-    score = len(overlap) / len(job_words)
-    # Return top keywords as the labels
-    labels = [w.capitalize() for w in overlap][:3]
+    score = len(overlap) / len(union)
+    labels = sorted(overlap, key=lambda x: -len(x))[:5]
     return score, labels
 
 @app.post("/upload-resume/")
@@ -51,13 +65,17 @@ async def upload_resume(
         resume_text = extract_text(resume)
         job_text = job_description
 
-        score, labels = match_score(resume_text, job_text)
-        keywords = ", ".join(sorted(set(job_text.split()), key=lambda x: -job_text.count(x)))[:200]
+        resume_keywords = extract_technical_keywords(resume_text)
+        job_keywords = extract_technical_keywords(job_text)
+
+        score, labels = match_score(resume_keywords, job_keywords)
+
+        sequence = ", ".join(sorted(resume_keywords | job_keywords))
 
         return {
             "scores": [score],
             "labels": labels,
-            "sequence": keywords
+            "sequence": sequence
         }
     except Exception as e:
         return {
