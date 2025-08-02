@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { BASE_URL } from "./api";
 
 const ResumeMatcher = () => {
   const [resumeFile, setResumeFile] = useState(null);
@@ -114,7 +115,7 @@ const ResumeMatcher = () => {
     formData.append("job_description", jobDesc);
 
     try {
-      const res = await axios.post("http://localhost:8000/upload-resume/", formData, {
+      const res = await axios.post(`${BASE_URL}/upload-resume/`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setResult(res.data);
