@@ -1,0 +1,6 @@
+fastapi[all]
+spaCy
+transformers
+torch
+uvicorn
+pyjwt
