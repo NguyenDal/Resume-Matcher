@@ -129,7 +129,7 @@ const ResumeMatcher = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-100 to-purple-200">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-100 to-purple-200 py-10">
       <div className="bg-white rounded-2xl shadow-2xl px-4 py-8 sm:px-12 sm:py-12 md:px-20 md:py-16 max-w-full w-full md:max-w-4xl lg:max-w-5xl transition-all duration-200">
         <h1 className="text-4xl font-bold text-center text-blue-600 mb-2">Resume Job Matching</h1>
         <h2 className="text-xl text-center text-gray-700 mb-8">AI-Powered Fit Analysis &amp; Q&amp;A</h2>
