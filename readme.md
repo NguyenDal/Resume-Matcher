@@ -87,5 +87,5 @@ Use a non-password-protected, standard PDF.
 Upgrade pip: pip install --upgrade pip and try again.
 
 ### 5. License
-MIT License.
+Apache License.
 Feel free to use, fork, or contribute!

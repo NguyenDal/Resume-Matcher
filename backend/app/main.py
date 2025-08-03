@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import PyPDF2
 import openai
@@ -6,6 +6,18 @@ import os
 import re
 import json
 from dotenv import load_dotenv
+
+# --- For user registration ---
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from app.auth import hash_password, verify_password
+from app.models import User
+from app.database import get_db
+
+# --- For user login ---
+from fastapi.security import OAuth2PasswordRequestForm
+from jose import JWTError, jwt
+from datetime import datetime, timedelta
 
 # === UTILS ===
 
@@ -35,15 +47,11 @@ def extract_text(file: UploadFile):
 def clean_explanation(text):
     """Cleans explanation text for user-friendliness."""
     text = text.strip()
-    # Capitalize first letter
     if text and not text[0].isupper():
         text = text[0].upper() + text[1:]
-    # Ensure ends with a period (unless already ends with punctuation)
     if text and text[-1] not in ".!?":
         text += "."
-    # Replace double spaces with single
     text = re.sub(r'\s{2,}', ' ', text)
-    # Add period after a line break (optional, keeps blocks readable)
     text = re.sub(r'(?<![.?!])\n', '. ', text)
     return text
 
@@ -52,6 +60,7 @@ def clean_explanation(text):
 load_dotenv()
 openai_api_key = os.getenv("OPENAI_API_KEY")
 client = openai.OpenAI(api_key=openai_api_key)
+MODEL = "gpt-4.1-nano" 
 
 # === REQUIREMENT EXTRACTION ===
 
@@ -64,7 +73,7 @@ def extract_requirements_gpt(job_desc):
     )
     user_prompt = f"Job Description:\n{job_desc}\n\nExtract the requirements as a JSON list."
     response = client.chat.completions.create(
-        model="gpt-4.1-nano",
+        model=MODEL,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -91,7 +100,7 @@ def match_requirements_gpt(resume_text, requirements):
         "Return a JSON array as specified."
     )
     response = client.chat.completions.create(
-        model="gpt-4.1-nano",
+        model=MODEL,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -173,7 +182,7 @@ async def upload_resume(
             "Return only the JSON list."
         )
         response = client.chat.completions.create(
-            model="gpt-4.1-nano",
+            model=MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -198,3 +207,69 @@ async def upload_resume(
             "requirement_explanations": {},
             "ai_suggestions": [{"question": "Error", "answer": str(e)}],
         }
+
+# === USER REGISTRATION ENDPOINT ===
+
+@app.post("/register/")
+def register_user(email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+    if db.query(User).filter(User.email == email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+    hashed_pw = hash_password(password)
+    new_user = User(email=email, hashed_password=hashed_pw)
+    db.add(new_user)
+    try:
+        db.commit()
+        db.refresh(new_user)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Registration failed")
+    return {"id": new_user.id, "email": new_user.email}
+
+# === USER LOGIN ENDPOINT ===
+@app.post("/login/")
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == form_data.username).first()
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
+    
+    # Issue JWT
+    SECRET_KEY = os.getenv("SECRET_KEY", "your-fallback-secret")
+    ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 1 day
+    payload = {
+        "sub": user.email,
+        "user_id": user.id,
+        "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    }
+    token = jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+    return {"access_token": token, "token_type": "bearer", "user_id": user.id, "email": user.email}
+
+# === JWT-Protected User Info Endpoint ===
+
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+ALGORITHM = "HS256"
+SECRET_KEY = os.getenv("SECRET_KEY", "your-fallback-secret")
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+        user = db.query(User).filter(User.email == email).first()
+        if user is None:
+            raise credentials_exception
+        return user
+    except JWTError:
+        raise credentials_exception
+
+@app.get("/me/")
+def read_users_me(current_user: User = Depends(get_current_user)):
+    return {"id": current_user.id, "email": current_user.email}
