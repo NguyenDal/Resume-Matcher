@@ -89,41 +89,72 @@ Upgrade pip: pip install --upgrade pip and try again.
 ### 5. Security
 #### a. Password Hashing
 
-User passwords are never stored in plain text.
+- User passwords are never stored in plain text.
 
-When you register, your password is “hashed” using a strong algorithm (bcrypt or similar).
-This means even if someone accesses the database, they can’t see or use your password.
+- When you register, your password is “hashed” using a strong algorithm (bcrypt or similar).
 
-During login, your password is checked by comparing the hash, not the real password.
+- This means even if someone accesses the database, they can’t see or use your password.
+
+- During login, your password is checked by comparing the hash, not the real password.
 
 #### b. User Authentication & JWT Tokens
 
-After a successful login, the backend gives you an access token (called a JWT – JSON Web Token).
+- After a successful login, the backend gives you an access token (called a JWT – JSON Web Token).
 
-This token acts like a digital key, letting you access your own data or protected endpoints.
+- This token acts like a digital key, letting you access your own data or protected endpoints.
 
-The token contains only your basic info (user id, email, and expiry date), and it’s cryptographically signed, so it cannot be tampered with.
+- The token contains only your basic info (user id, email, and expiry date), and it’s cryptographically signed, so it cannot be tampered with.
 
 #### c. Protected API Routes
 
-Some API routes (like /me/ or other user data) require you to send your JWT token.
+- Some API routes (like /me/ or other user data) require you to send your JWT token.
 
-If you don’t include the token, or it’s expired/invalid, access is denied.
+- If you don’t include the token, or it’s expired/invalid, access is denied.
 
-This makes sure that only logged-in users can see or edit their own info.
+- This makes sure that only logged-in users can see or edit their own info.
 
 #### d. CORS (Cross-Origin Resource Sharing)
 
-The backend is configured to only accept requests from your frontend (for example, http://localhost:3000).
+- The backend is configured to only accept requests from your frontend (for example, http://localhost:3000).
 
-This helps block unwanted requests from other websites or sources.
+- This helps block unwanted requests from other websites or sources.
 
 #### e. Environment Variables
 
-Sensitive information (like your OpenAI API key and secret keys) should always go in your .env file.
+- Sensitive information (like your OpenAI API key and secret keys) should always go in your .env file.
 
-Never commit your .env to git or share it publicly.
+- Never commit your .env to git or share it publicly.
 
-### 6. License
+### 6. Database
+
+#### a. How is user data stored?
+- TalentMatch uses a lightweight SQLite database (app.db) to store user account info by default.
+
+- This database is just a single file that sits in your backend project folder. You don’t need to install or run anything extra—it works automatically for local development.
+
+- Passwords are always stored securely using strong hashing. Your real password is never saved.
+
+#### b. How to create (or reset) the database
+If you want to generate a fresh app.db (for example, when first setting up, or if you deleted it):
+
+- Make sure your backend environment is activated (your virtual environment should be running).
+
+- Navigate to your backend directory and run the table creation script to generate app.db with the correct tables.
+    py -m app.init_db
+    py -m app.check_tables
+
+After running this, you should see app.db created in your backend folder, and you’re ready to go!
+
+#### c. What happens in production or on a real server?
+
+- If you deploy the app (to something like Heroku, AWS, DigitalOcean, or your own server), the database will be stored on that server’s disk.
+
+- Your data will stay on the server as long as you don’t delete or overwrite the database file.
+
+- If you need to move or back up your data, you can simply copy the app.db file.
+
+- For more advanced use (team projects, scaling, etc.), you can switch to PostgreSQL, MySQL, or another supported SQL database by changing the database settings in app/database.py.
+
+### 7. License
 Apache License.
 Feel free to use, fork, or contribute!
