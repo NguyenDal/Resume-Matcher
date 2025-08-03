@@ -86,6 +86,44 @@ Use a non-password-protected, standard PDF.
 #### Dependency errors?
 Upgrade pip: pip install --upgrade pip and try again.
 
-### 5. License
-MIT License.
+### 5. Security
+#### a. Password Hashing
+
+User passwords are never stored in plain text.
+
+When you register, your password is “hashed” using a strong algorithm (bcrypt or similar).
+This means even if someone accesses the database, they can’t see or use your password.
+
+During login, your password is checked by comparing the hash, not the real password.
+
+#### b. User Authentication & JWT Tokens
+
+After a successful login, the backend gives you an access token (called a JWT – JSON Web Token).
+
+This token acts like a digital key, letting you access your own data or protected endpoints.
+
+The token contains only your basic info (user id, email, and expiry date), and it’s cryptographically signed, so it cannot be tampered with.
+
+#### c. Protected API Routes
+
+Some API routes (like /me/ or other user data) require you to send your JWT token.
+
+If you don’t include the token, or it’s expired/invalid, access is denied.
+
+This makes sure that only logged-in users can see or edit their own info.
+
+#### d. CORS (Cross-Origin Resource Sharing)
+
+The backend is configured to only accept requests from your frontend (for example, http://localhost:3000).
+
+This helps block unwanted requests from other websites or sources.
+
+#### e. Environment Variables
+
+Sensitive information (like your OpenAI API key and secret keys) should always go in your .env file.
+
+Never commit your .env to git or share it publicly.
+
+### 6. License
+Apache License.
 Feel free to use, fork, or contribute!
