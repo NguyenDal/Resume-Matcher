@@ -1,32 +1,37 @@
 import React, { useState } from "react";
 import { useAuth } from "./AuthContext";
-import { FiMail, FiLock, FiUser } from "react-icons/fi";
+import { FiLock, FiUser } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
 
 // Login component handles user login functionality and UI.
 export default function Login({ onSwitch }) {
   const { login } = useAuth(); // Access the login function from the authentication context.
   const [usernameOrEmail, setUsernameOrEmail] = useState(""); // State to store the entered username or email.
   const [password, setPassword] = useState(""); // State to store the entered password.
+  const [remember, setRemember] = useState(false); // State to manage the "Remember me" checkbox.
   const [err, setErr] = useState(""); // State to store any error messages during login.
   const [loading, setLoading] = useState(false); // State to indicate if the login process is ongoing.
 
+  const navigate = useNavigate(); // Hook to programmatically navigate after login.
+
   // Function to handle the login form submission.
   const handleLogin = async (e) => {
-    e.preventDefault(); // Prevent the default form submission behavior.
-    setErr(""); // Clear any previous error messages.
-    setLoading(true); // Set the loading state to true while processing the login.
+    e.preventDefault();
+    setErr("");
+    setLoading(true);
     try {
-      await login(usernameOrEmail, password); // Attempt to log in using the provided credentials.
+        // Pass the remember variable to login
+        await login(usernameOrEmail, password, remember);
+        // No need to set storage manually here anymore
     } catch (e) {
-      setErr(
-        // If an error occurs, display an appropriate error message.
-        e?.response?.data?.detail ||
-        e.message ||
-        "Login failed. Please check your credentials."
-      );
-      setLoading(false); // Reset the loading state if login fails.
+        setErr(
+            e?.response?.data?.detail ||
+            e.message ||
+            "Login failed. Please check your credentials."
+        );
+        setLoading(false);
     }
-  };
+};
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-800 via-purple-500 to-blue-400 relative overflow-hidden">
@@ -78,15 +83,36 @@ export default function Login({ onSwitch }) {
                 required
               />
             </div>
-            {/* Remember me and forgot password options */}
+            {/* Remember me and forgot password */}
             <div className="flex items-center justify-between text-sm mt-1">
-              <label className="flex items-center">
-                <input type="checkbox" className="mr-2" disabled /> Remember me
+              <label className="flex items-center cursor-pointer select-none">
+                <span className="relative flex items-center justify-center h-5 w-5">
+                  <input
+                    type="checkbox"
+                    checked={remember}
+                    onChange={() => setRemember((r) => !r)}
+                    className="appearance-none h-5 w-5 border-2 border-purple-400 rounded-md checked:bg-purple-600 transition-all cursor-pointer"
+                    aria-checked={remember}
+                  />
+                  {remember && (
+                    <svg
+                      className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white pointer-events-none"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={3}
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </span>
+                <span className="ml-2 text-gray-600 font-medium">Remember me</span>
               </label>
+
               <button
                 type="button"
-                className="text-purple-600 hover:underline"
-                disabled
+                className="text-purple-600 hover:underline font-medium"
+                onClick={() => navigate("/reset-password")}
               >
                 Forgot password?
               </button>
@@ -105,7 +131,11 @@ export default function Login({ onSwitch }) {
           {/* Option to switch to the signup form */}
           <div className="text-center mt-5 text-gray-500 text-sm">
             Not a member?{" "}
-            <button onClick={onSwitch} className="text-purple-600 font-semibold hover:underline" type="button">
+            <button
+              onClick={() => navigate("/signup")}
+              className="text-purple-600 font-semibold hover:underline"
+              type="button"
+            >
               Signup Now
             </button>
           </div>

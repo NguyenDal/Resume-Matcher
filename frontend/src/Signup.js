@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import { BASE_URL } from "./api";
 import { FiMail, FiLock, FiUser } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
 
 // Signup component handles user registration functionality and UI.
 export default function Signup({ onLogin, onSwitch }) {
@@ -10,6 +11,8 @@ export default function Signup({ onLogin, onSwitch }) {
   const [password, setPassword] = useState(""); // State to store the entered password.
   const [err, setErr] = useState(""); // State to store any error messages during signup.
   const [loading, setLoading] = useState(false); // State to indicate if the signup process is ongoing.
+
+  const navigate = useNavigate(); // Hook to programmatically navigate after signup.
 
   // Function to handle the signup form submission.
   const handleSignup = async (e) => {
@@ -123,7 +126,7 @@ export default function Signup({ onLogin, onSwitch }) {
           {/* Option to switch to the login form */}
           <div className="text-center mt-5 text-gray-500 text-sm">
             Already have an account?{" "}
-            <button onClick={onSwitch} className="text-purple-600 font-semibold hover:underline" type="button">
+            <button onClick={() => navigate("/login")} className="text-purple-600 font-semibold hover:underline" type="button">
               Login
             </button>
           </div>
