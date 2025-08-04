@@ -1,8 +1,10 @@
 import React, { useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import ResumeMatcher from "./ResumeMatcher";
 import { AuthProvider, useAuth } from "./AuthContext";
 import Signup from "./Signup";
 import Login from "./Login";
+import ResetPassword from "./ResetPassword";
 
 // Placeholder component for the user profile page.
 function ProfilePlaceholder() {
@@ -78,28 +80,40 @@ const App = () => {
     });
   };
 
-  // If no user is logged in, show the login or signup form.
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        {showLogin ? (
-          <Login onSwitch={() => setShowLogin(false)} onLogin={login} />
-        ) : (
-          <Signup onSwitch={() => setShowLogin(true)} onLogin={handleLogin} />
-        )}
-      </div>
-    );
-  }
-
-  // If a user is logged in, render the main content.
-  return <MainContent />;
+  return (
+    <Routes>
+      {/* Login/Signup/Reset Password routes for unauthenticated users */}
+      {!user ? (
+        <>
+          <Route
+            path="/"
+            element={<Login onSwitch={() => setShowLogin(false)} onLogin={login} />}
+          />
+          <Route
+            path="/signup"
+            element={<Signup onSwitch={() => setShowLogin(true)} onLogin={handleLogin} />}
+          />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          {/* Fallback route to redirect unknown routes to login */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </>
+      ) : (
+        // Main app for logged-in users
+        <>
+          <Route path="/*" element={<MainContent />} />
+        </>
+      )}
+    </Routes>
+  );
 };
 
 // WrappedApp component wraps the App component with the AuthProvider to provide authentication context.
 export default function WrappedApp() {
   return (
     <AuthProvider>
-      <App />
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
     </AuthProvider>
   );
 }

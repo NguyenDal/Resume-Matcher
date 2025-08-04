@@ -1,4 +1,7 @@
 # === Core Imports ===
+from dotenv import load_dotenv
+load_dotenv()  # Load secrets from .env for devs
+from fastapi import BackgroundTasks
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import PyPDF2
@@ -7,7 +10,7 @@ import openai
 import os
 import re
 import json
-from dotenv import load_dotenv
+
 
 # === Database & Auth Imports ===
 from sqlalchemy.orm import Session
@@ -21,6 +24,35 @@ from app.database import get_db
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
+import secrets
+
+# === Email Imports for password reset ===
+
+from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
+from email_validator import validate_email, EmailNotValidError
+
+# Read email config from .env
+MAIL_USERNAME = os.getenv("MAIL_USERNAME")
+MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
+MAIL_FROM = os.getenv("MAIL_FROM")
+MAIL_FROM_NAME = os.getenv("MAIL_FROM_NAME", "TalentMatch")
+MAIL_SERVER = os.getenv("MAIL_SERVER")
+MAIL_PORT = int(os.getenv("MAIL_PORT", 587))
+MAIL_STARTTLS = os.getenv("MAIL_STARTTLS", "True") == "True"
+MAIL_SSL_TLS = os.getenv("MAIL_SSL_TLS", "False") == "True"
+
+conf = ConnectionConfig(
+    MAIL_USERNAME=MAIL_USERNAME,
+    MAIL_PASSWORD=MAIL_PASSWORD,
+    MAIL_FROM=MAIL_FROM,
+    MAIL_FROM_NAME=MAIL_FROM_NAME,
+    MAIL_SERVER=MAIL_SERVER,
+    MAIL_PORT=MAIL_PORT,
+    MAIL_STARTTLS=MAIL_STARTTLS,
+    MAIL_SSL_TLS=MAIL_SSL_TLS,
+    USE_CREDENTIALS=True,
+    VALIDATE_CERTS=True
+)
 
 # === Utility Functions ===
 
@@ -74,7 +106,6 @@ def clean_explanation(text):
 
 # === OPENAI SETUP ===
 
-load_dotenv()  # Load secrets from .env for devs
 openai_api_key = os.getenv("OPENAI_API_KEY")
 client = openai.OpenAI(api_key=openai_api_key)
 MODEL = "gpt-4.1-nano"
@@ -326,3 +357,90 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 def read_users_me(current_user: User = Depends(get_current_user)):
     """Get details about the currently logged-in user (JWT required)."""
     return {"id": current_user.id, "username": current_user.username, "email": current_user.email}
+
+# --- PASSWORD RESET: Step 2a - Generate and return a password reset token ---
+
+@app.post("/request-password-reset/")
+async def request_password_reset(
+    background_tasks: BackgroundTasks,
+    email: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Generates a secure password reset token for the given email and sends it as a reset link via email.
+    """
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found with this email.")
+    try:
+        # Validate email
+        validate_email(email)
+    except EmailNotValidError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    user.generate_reset_token(expires_in=3600)  # 1 hour expiry
+    db.commit()
+
+    # Password reset link
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    reset_link = f"{frontend_url}/reset-password?token={user.reset_token}"
+
+    # Compose email
+    message = MessageSchema(
+        subject="Password Reset Request - TalentMatch",
+        recipients=[email],
+        body=f"""Hello {user.username},
+
+You requested a password reset for your TalentMatch account.
+
+Click the link below to set a new password. This link will expire in 1 hour:
+
+{reset_link}
+
+If you did not request this, just ignore this email.
+
+Thanks,
+TalentMatch Team
+""",
+        subtype="plain"
+    )
+    fm = FastMail(conf)
+    # Send email in the background
+    background_tasks.add_task(fm.send_message, message)
+
+    return {"ok": True, "message": "Password reset email sent if the email exists in our records."}
+
+
+# --- PASSWORD RESET: Step 2b - Verify a password reset token ---
+
+@app.post("/verify-password-reset/")
+def verify_password_reset(token: str = Form(...), db: Session = Depends(get_db)):
+    """
+    Verifies the given reset token. If valid and not expired, returns OK.
+    """
+    user = db.query(User).filter(User.reset_token == token).first()
+    if not user or not user.verify_reset_token(token):
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token.")
+    return {"ok": True, "user_id": user.id, "username": user.username, "email": user.email}
+
+# --- PASSWORD RESET: Step 3 - Reset the user's password using the token ---
+
+@app.post("/reset-password/")
+def reset_password(
+    token: str = Form(...),
+    new_password: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Reset the user's password using a valid reset token.
+    """
+    user = db.query(User).filter(User.reset_token == token).first()
+    if not user or not user.verify_reset_token(token):
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token.")
+
+    # Hash and set the new password
+    user.hashed_password = hash_password(new_password)
+    user.clear_reset_token()
+    db.commit()
+
+    return {"ok": True, "message": "Password has been reset successfully."}
