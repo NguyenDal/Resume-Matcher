@@ -3,6 +3,7 @@ import axios from "axios";
 import { BASE_URL } from "./api";
 import { FiMail, FiLock, FiUser } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
+import PublicNavBar from "./PublicNavBar"; // Import the public navbar
 
 // Signup component handles user registration functionality and UI.
 export default function Signup({ onLogin, onSwitch }) {
@@ -54,18 +55,7 @@ export default function Signup({ onLogin, onSwitch }) {
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-purple-800 via-purple-500 to-blue-400 relative overflow-hidden">
       {/* Top navigation bar */}
-      <header className="absolute top-0 left-0 w-full px-8 py-5 flex justify-between items-center z-10">
-        <div className="text-white text-2xl font-bold tracking-tight">TalentMatch</div>
-        <nav className="space-x-8 hidden md:block">
-          <a href="#" className="text-white hover:text-purple-200 transition">Home</a>
-          <a href="#" className="text-white hover:text-purple-200 transition">Product</a>
-          <a href="#" className="text-white hover:text-purple-200 transition">Services</a>
-          <a href="#" className="text-white hover:text-purple-200 transition">Contact</a>
-        </nav>
-        <button className="border border-white text-white px-5 py-2 rounded hover:bg-white hover:text-purple-700 font-medium transition hidden md:block">
-          Signup
-        </button>
-      </header>
+      <PublicNavBar />
 
       {/* Centered signup card */}
       <div className="flex items-center justify-center w-full min-h-screen">
