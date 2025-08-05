@@ -8,7 +8,8 @@ import ResetPassword from "./ResetPassword";
 import RequestPasswordReset from "./RequestPasswordReset";
 import NavBar from "./NavBar";
 import PublicNavBar from "./PublicNavBar";
-import UserProfile from "./UserProfile"; // <-- import your user profile page
+import ProfileSetting from "./ProfileSetting";
+import UserProfile from "./UserProfile";
 
 // Main authenticated content (with app nav bar)
 const MainContent = () => {
@@ -56,10 +57,18 @@ const App = () => {
     return (
       <Routes>
         <Route path="/" element={<MainContent />} />
-        <Route path="/profile/*" element={<>
-          <NavBar setMenu={() => {}} menu="profile" />
-          <UserProfile />
-        </>} />
+        <Route path="/profile/*" element={
+          <>
+            <NavBar setMenu={() => { }} menu="profile" />
+            <UserProfile />
+          </>
+        } />
+        <Route path="/profile/settings/*" element={
+          <>
+            <NavBar setMenu={() => { }} menu="profile" />
+            <ProfileSetting />
+          </>
+        } />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );

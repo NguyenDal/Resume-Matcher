@@ -1,158 +1,176 @@
-import React, { useRef, useState } from "react";
-import { Routes, Route, NavLink } from "react-router-dom";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-// Dummy user info; wire up to backend as needed!
-const mockUser = {
-  firstName: "John",
-  lastName: "Doe",
-  email: "emailis@private.com",
-  profession: "UI/UX Designer",
-  bio: "Open-Source designer @ UI Design Daily",
+const user = {
   avatar: "https://randomuser.me/api/portraits/men/4.jpg",
+  banner: "", // leave blank for a simple gradient bg
+  name: "John Doe",
+  nickname: "@Nickname",
+  stats: { posts: 289, followers: "Lorem", following: "45 Ipsum" }
 };
 
-function ProfileDetails() {
-  const [user] = useState(mockUser);
-  const fileInput = useRef();
-  return (
-    <form className="max-w-3xl grid grid-cols-2 gap-8" onSubmit={e => e.preventDefault()}>
-      <div className="col-span-2 flex items-center gap-8 mb-6">
-        <img
-          src={user.avatar}
-          alt="Profile"
-          className="w-28 h-28 rounded-full border-4 border-white shadow object-cover"
-        />
-        <div className="flex flex-col gap-3">
-          <button
-            type="button"
-            className="bg-gray-900 text-white px-6 py-2 rounded-md font-medium hover:bg-gray-700 transition"
-            onClick={() => fileInput.current.click()}
-          >
-            Change picture
-          </button>
-          <input
-            ref={fileInput}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={() => {/* handle image upload */}}
-          />
-          <button
-            type="button"
-            className="border border-gray-400 text-gray-700 px-6 py-2 rounded-md font-medium hover:bg-gray-100 transition"
-            onClick={() => {/* handle delete pic */}}
-          >
-            Delete picture
-          </button>
-        </div>
-      </div>
-      <div className="col-span-1">
-        <label className="block text-gray-700 font-medium mb-1">First name</label>
-        <input
-          type="text"
-          defaultValue={user.firstName}
-          className="w-full rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-300 bg-white text-black"
-        />
-      </div>
-      <div className="col-span-1">
-        <label className="block text-gray-700 font-medium mb-1">Last name</label>
-        <input
-          type="text"
-          defaultValue={user.lastName}
-          className="w-full rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-300 bg-white text-black"
-        />
-      </div>
-      <div className="col-span-2">
-        <label className="block text-gray-700 font-medium mb-1">Email</label>
-        <input
-          type="email"
-          defaultValue={user.email}
-          className="w-full rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-300 bg-white text-black"
-        />
-      </div>
-      <div className="col-span-2">
-        <label className="block text-gray-700 font-medium mb-1">Profession</label>
-        <input
-          type="text"
-          defaultValue={user.profession}
-          className="w-full rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-300 bg-white text-black"
-        />
-      </div>
-      <div className="col-span-2">
-        <label className="block text-gray-700 font-medium mb-1">Bio</label>
-        <textarea
-          rows={3}
-          defaultValue={user.bio}
-          className="w-full rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-300 bg-white text-black"
-        />
-      </div>
-      <div className="col-span-2 mt-6 flex justify-end">
-        <button
-          type="submit"
-          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2 rounded-md font-bold transition"
-        >
-          Save Changes
-        </button>
-      </div>
-    </form>
-  );
-}
+const samplePosts = [
+  {
+    id: 1,
+    author: "Jane Doe",
+    nickname: "@Nickname",
+    time: "30 minutes ago",
+    content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.",
+    replies: 163,
+    retweets: "3.3K",
+    likes: "14.7K",
+    image: null
+  },
+  {
+    id: 2,
+    author: "John Doe",
+    nickname: "@Nickname",
+    time: "30 minutes ago",
+    content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.",
+    replies: 80,
+    retweets: 500,
+    likes: 2010,
+    image: "https://via.placeholder.com/400x150/7dcfff/fff?text=Post+Image"
+  }
+];
 
-function AccountSettings() {
-  return <div className="max-w-3xl text-black">Account settings go here (change password, etc).</div>;
-}
-function Notifications() {
-  return <div className="max-w-3xl text-black">Notification settings go here.</div>;
-}
-function Security() {
-  return <div className="max-w-3xl text-black">Security settings go here (2FA, etc).</div>;
-}
-
-export default function UserProfile() {
-  // Sidebar config
-  const sidebar = [
-    { name: "Public profile", path: "/profile" },
-    { name: "Account settings", path: "/profile/account" },
-    { name: "Notifications", path: "/profile/notifications" },
-    { name: "Security", path: "/profile/security" },
-  ];
+export default function ProfilePage() {
+  const [tab, setTab] = useState("Posts");
+  const navigate = useNavigate();
 
   return (
     <div className="flex flex-col items-center justify-center w-full bg-gradient-to-br from-blue-100 to-purple-200 py-10 min-h-[90vh]">
-      {/* Main card */}
-      <div className="w-full max-w-6xl mx-auto shadow-xl rounded-2xl bg-white flex"
-        style={{ minHeight: "650px" }}
-      >
-        {/* Sidebar */}
-        <aside className="w-72 border-r border-gray-200 px-8 py-10">
-          <h2 className="text-2xl font-bold mb-8 text-gray-800">Settings</h2>
-          <nav className="flex flex-col gap-2">
-            {sidebar.map(item => (
-              <NavLink
-                key={item.name}
-                to={item.path}
-                end={item.path === "/profile"}
-                className={({ isActive }) =>
-                  "px-4 py-2 text-left rounded-md font-medium transition " +
-                  (isActive
-                    ? "bg-blue-100 text-blue-700"
-                    : "hover:bg-gray-50 text-gray-700")
-                }
-              >
-                {item.name}
-              </NavLink>
-            ))}
-          </nav>
-        </aside>
-        {/* Main content */}
-        <section className="flex-1 px-16 py-12 min-w-0 flex flex-col">
-          <Routes>
-            <Route path="/" element={<ProfileDetails />} />
-            <Route path="/account" element={<AccountSettings />} />
-            <Route path="/notifications" element={<Notifications />} />
-            <Route path="/security" element={<Security />} />
-          </Routes>
-        </section>
+      <div className="min-h-screen bg-gray-50 flex justify-center px-2">
+        <div className="w-full max-w-8xl flex flex-col lg:flex-row gap-6 mt-4 mb-4">
+          {/* Left/main content */}
+          <main className="flex-1 bg-white rounded-2xl shadow-md overflow-hidden">
+            {/* Banner */}
+            <div className="w-full h-40 bg-gradient-to-r from-blue-400 to-blue-200 relative">
+              {/* Avatar */}
+              <div className="absolute left-8 -bottom-12 flex items-end">
+                <img
+                  src={user.avatar}
+                  alt="Avatar"
+                  className="w-28 h-28 rounded-full border-4 border-white object-cover shadow-xl"
+                />
+              </div>
+            </div>
+            {/* Profile details */}
+            <div className="pt-16 px-8 pb-2">
+              <div className="flex justify-between items-center">
+                <div>
+                  <div className="font-extrabold text-2xl text-gray-900">{user.name}</div>
+                  <div className="text-gray-500">{user.nickname}</div>
+                  <div className="flex gap-8 mt-2 text-gray-600 text-sm font-medium">
+                    <span>{user.stats.posts} <span className="text-gray-400 font-normal">Posts</span></span>
+                    <span>{user.stats.followers} <span className="text-gray-400 font-normal">Followers</span></span>
+                    <span>{user.stats.following} <span className="text-gray-400 font-normal">Following</span></span>
+                  </div>
+                </div>
+                <button
+                  className="border border-blue-400 text-blue-500 hover:bg-blue-100 font-semibold px-6 py-2 rounded-3xl transition"
+                  onClick={() => navigate("/profile/settings")}
+                >
+                  Profile settings
+                </button>
+              </div>
+              {/* Tabs */}
+              <div className="flex gap-6 border-b border-gray-200 mt-8">
+                {["Posts", "Replies", "Media", "Likes"].map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTab(t)}
+                    className={
+                      "py-3 font-semibold transition border-b-2 " +
+                      (tab === t
+                        ? "border-blue-500 text-blue-600"
+                        : "border-transparent text-gray-500 hover:text-blue-400")
+                    }
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Feed */}
+            <div className="px-8 py-5">
+              {/* Posts */}
+              {samplePosts.map((p) => (
+                <div key={p.id} className="border-b border-gray-100 pb-6 mb-6 flex gap-4">
+                  <img src={user.avatar} alt="avatar" className="w-12 h-12 rounded-full object-cover" />
+                  <div className="flex-1">
+                    <div className="flex gap-2 items-baseline">
+                      <span className="font-bold text-gray-800">{p.author}</span>
+                      <span className="text-gray-400 text-sm">{p.nickname}</span>
+                      <span className="text-gray-400 text-xs ml-2">{p.time}</span>
+                    </div>
+                    <div className="text-gray-800 mt-1 mb-2">{p.content}</div>
+                    {p.image && (
+                      <img src={p.image} alt="media" className="rounded-lg w-full max-w-xl my-2" />
+                    )}
+                    <div className="flex gap-7 text-gray-500 mt-2 text-sm font-medium">
+                      <span>💬 {p.replies}</span>
+                      <span>🔁 {p.retweets}</span>
+                      <span>❤️ {p.likes}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </main>
+          {/* Right Sidebar */}
+          <aside className="w-full lg:w-96 flex-shrink-0">
+            <div className="bg-white rounded-2xl shadow-md mb-6 p-5">
+              <input
+                type="text"
+                className="w-full rounded-xl border border-gray-200 px-4 py-2 mb-3 focus:ring-2 focus:ring-blue-100"
+                placeholder="🔍  Search ..."
+              />
+              <div className="font-bold mb-3 text-gray-800">Hot topics</div>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <img src={user.avatar} className="w-7 h-7 rounded-full" alt="" />
+                  <div>
+                    <div className="font-semibold text-sm text-gray-800">Jane Doe</div>
+                    <div className="text-xs text-gray-500">@Nickname</div>
+                  </div>
+                  <button className="ml-auto px-3 py-1 rounded-2xl bg-blue-100 text-blue-600 font-bold text-xs">Read</button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <img src={user.avatar} className="w-7 h-7 rounded-full" alt="" />
+                  <div>
+                    <div className="font-semibold text-sm text-gray-800">John Doe</div>
+                    <div className="text-xs text-gray-500">@Nickname</div>
+                  </div>
+                  <button className="ml-auto px-3 py-1 rounded-2xl bg-blue-100 text-blue-600 font-bold text-xs">Read</button>
+                </div>
+                <button className="text-blue-500 text-xs mt-2 ml-2">Show more...</button>
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl shadow-md p-5">
+              <div className="font-bold mb-2 text-gray-800">Trends for you</div>
+              <ol className="text-gray-700 text-sm space-y-2">
+                <li>
+                  <span className="font-semibold">#The main news of the day</span>
+                  <span className="block text-xs text-gray-400">1. Popular</span>
+                </li>
+                <li>
+                  <span className="font-semibold">#News of the day</span>
+                  <span className="block text-xs text-gray-400">2. Popular</span>
+                </li>
+                <li>
+                  <span className="font-semibold">#It is very interesting</span>
+                  <span className="block text-xs text-gray-400">3. Popular</span>
+                </li>
+                <li>
+                  <span className="font-semibold">#Incident of the day</span>
+                  <span className="block text-xs text-gray-400">4. Popular</span>
+                </li>
+              </ol>
+              <button className="text-blue-500 text-xs mt-3 ml-2">Show more...</button>
+            </div>
+          </aside>
+        </div>
       </div>
     </div>
   );
