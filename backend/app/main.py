@@ -10,7 +10,8 @@ import openai
 import os
 import re
 import json
-
+from app.s3_utils import upload_file_to_s3
+from uuid import uuid4
 
 # === Database & Auth Imports ===
 from sqlalchemy.orm import Session
@@ -356,7 +357,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 @app.get("/me/")
 def read_users_me(current_user: User = Depends(get_current_user)):
     """Get details about the currently logged-in user (JWT required)."""
-    return {"id": current_user.id, "username": current_user.username, "email": current_user.email}
+    return {"id": current_user.id, "username": current_user.username, "full_name": current_user.full_name, "email": current_user.email, "profile_image_url": current_user.profile_image_url}
 
 # --- PASSWORD RESET: Step 2a - Generate and return a password reset token ---
 
@@ -444,3 +445,32 @@ def reset_password(
     db.commit()
 
     return {"ok": True, "message": "Password has been reset successfully."}
+
+@app.post("/upload-profile-image/")
+async def upload_profile_image(
+    image: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Uploads a profile image for the authenticated user, stores it in S3, and saves the URL in the database.
+    """
+    # Optional: Check allowed file types
+    allowed_types = {"image/jpeg", "image/png", "image/webp"}
+    if image.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Unsupported image type")
+
+    # Generate a filename (you can use user ID for uniqueness)
+    filename = f"user_{current_user.id}_{uuid4().hex}.{image.filename.split('.')[-1]}"
+
+    # Upload to S3
+    s3_url = upload_file_to_s3(image, filename=filename, folder="avatars/")
+    if not s3_url:
+        raise HTTPException(status_code=500, detail="Failed to upload image to S3")
+
+    # Update the user's profile_image_url in the database
+    current_user.profile_image_url = s3_url
+    db.commit()
+    db.refresh(current_user)
+
+    return {"ok": True, "profile_image_url": s3_url}

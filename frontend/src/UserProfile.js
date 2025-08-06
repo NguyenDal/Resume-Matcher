@@ -1,42 +1,77 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
-const user = {
-  avatar: "https://randomuser.me/api/portraits/men/4.jpg",
-  banner: "", // leave blank for a simple gradient bg
-  name: "John Doe",
-  nickname: "@Nickname",
-  stats: { posts: 289, followers: "Lorem", following: "45 Ipsum" }
-};
-
-const samplePosts = [
-  {
-    id: 1,
-    author: "Jane Doe",
-    nickname: "@Nickname",
-    time: "30 minutes ago",
-    content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.",
-    replies: 163,
-    retweets: "3.3K",
-    likes: "14.7K",
-    image: null
-  },
-  {
-    id: 2,
-    author: "John Doe",
-    nickname: "@Nickname",
-    time: "30 minutes ago",
-    content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.",
-    replies: 80,
-    retweets: 500,
-    likes: 2010,
-    image: "https://via.placeholder.com/400x150/7dcfff/fff?text=Post+Image"
-  }
-];
+import axios from "axios";
+import { BASE_URL } from "./api"; // Make sure this points to your backend URL
+import { useAuth } from "./AuthContext";
 
 export default function ProfilePage() {
   const [tab, setTab] = useState("Posts");
+  const [user, setUser] = useState(null);
   const navigate = useNavigate();
+  const { user: authUser } = useAuth();
+
+  // Fetch user profile info from backend on mount
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        // Get JWT token from auth context or localStorage
+        const token = authUser?.token || localStorage.getItem("token");
+        const res = await axios.get(`${BASE_URL}/me/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        setUser({
+          avatar: res.data.profile_image_url,
+          name: res.data.full_name,
+          nickname: "@" + res.data.username,
+          stats: { posts: 289, followers: "Lorem", following: "45 Ipsum" }, // You can make this dynamic if you have endpoints
+        });
+      } catch (err) {
+        setUser({
+          avatar: "https://randomuser.me/api/portraits/men/4.jpg",
+          name: "Unknown User",
+          nickname: "@unknown",
+          stats: { posts: 0, followers: "0", following: "0" },
+        });
+      }
+    };
+    fetchUser();
+  }, [authUser]);
+
+  // Sample posts remain static for now
+  const samplePosts = [
+    {
+      id: 1,
+      author: "Jane Doe",
+      nickname: "@Nickname",
+      time: "30 minutes ago",
+      content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.",
+      replies: 163,
+      retweets: "3.3K",
+      likes: "14.7K",
+      image: null
+    },
+    {
+      id: 2,
+      author: "John Doe",
+      nickname: "@Nickname",
+      time: "30 minutes ago",
+      content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.",
+      replies: 80,
+      retweets: 500,
+      likes: 2010,
+      image: "https://via.placeholder.com/400x150/7dcfff/fff?text=Post+Image"
+    }
+  ];
+
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center w-full bg-gradient-to-br from-blue-100 to-purple-200 py-10 min-h-[90vh]">
+        <div className="text-xl text-gray-600">Loading profile...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-center w-full bg-gradient-to-br from-blue-100 to-purple-200 py-10 min-h-[90vh]">

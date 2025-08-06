@@ -13,6 +13,7 @@ class User(Base):
     full_name = Column(String, nullable=True)
     reset_token = Column(String, unique=True, nullable=True, index=True)
     reset_token_expiration = Column(DateTime, nullable=True)
+    profile_image_url = Column(String, nullable=True)
 
     def generate_reset_token(self, expires_in=3600):
         self.reset_token = secrets.token_urlsafe(32)
