@@ -52,26 +52,29 @@ Create a .env file in your backend directory with:
 OPENAI_API_KEY=your_openai_api_key_here
 
 #### Start the FastAPI server
+
 ##### If main.py is at root
+
 py -m uvicorn main:app --reload
+
 ##### If main.py is inside an 'app' folder:
+
 py -m uvicorn app.main:app --reload
 The server runs at: http://localhost:8000
 
 ### 3. Frontend Setup (React)
-cd frontend
-npm install
-npm start
-The frontend runs at: http://localhost:3000
+- cd frontend
+- npm install
+- npm start
+- The frontend runs at: http://localhost:3000
 
-Usage
-Open http://localhost:3000 in your browser.
+- Open http://localhost:3000 in your browser.
 
-Upload your resume and paste the job description.
+- Upload your resume and paste the job description.
 
-Click Check Match.
+- Click Check Match.
 
-Review your match score, see detailed requirement breakdown, and use the fit Q&A for preparation.
+- Review your match score, see detailed requirement breakdown, and use the fit Q&A for preparation.
 
 ### 4. Troubleshooting
 #### CORS error?
@@ -128,32 +131,56 @@ Upgrade pip: pip install --upgrade pip and try again.
 ### 6. Database
 
 #### a. How is user data stored?
-- TalentMatch uses a lightweight SQLite database (app.db) to store user account info by default.
 
-- This database is just a single file that sits in your backend project folder. You don’t need to install or run anything extra—it works automatically for local development.
+- TalentMatch uses a PostgreSQL database by default for production and deployment.
+    Your user account info (email, username, password hash, etc.) is securely stored in PostgreSQL, which runs in the Railway cloud.
 
-- Passwords are always stored securely using strong hashing. Your real password is never saved.
+- For local development, you can still use a lightweight SQLite database (app.db) if you haven’t configured PostgreSQL.
+    This makes it easy to get started without setting up anything extra.
+
+- Passwords are always stored securely using strong hashing.
+    Your real password is never saved.
 
 #### b. How to create (or reset) the database
-If you want to generate a fresh app.db (for example, when first setting up, or if you deleted it):
 
-- Make sure your backend environment is activated (your virtual environment should be running).
+##### For PostgreSQL (Production/Cloud e.g. Railway):
 
-- Navigate to your backend directory and run the table creation script to generate app.db with the correct tables.
+- Make sure your .env and app/database.py are configured for your PostgreSQL connection.
+
+- Run the table creation script in your backend folder to initialize your tables in the Postgres DB:
     py -m app.init_db
+
+- You can also double check your tables by running:
     py -m app.check_tables
 
-After running this, you should see app.db created in your backend folder, and you’re ready to go!
+- You can use the Railway dashboard (or your preferred SQL client) to inspect your tables and data.
+
+##### For SQLite (Local Development):
+
+If you want to generate a fresh app.db (for testing/development):
+
+- Make sure your backend environment is activated.
+
+- Run: 
+    py -m app.init_db -> py -m app.check_tables
+
+- After running this, you’ll see app.db created in your backend folder, ready for local development.
 
 #### c. What happens in production or on a real server?
 
-- If you deploy the app (to something like Heroku, AWS, DigitalOcean, or your own server), the database will be stored on that server’s disk.
+- In production, your database is stored in the cloud (on Railway’s PostgreSQL or another managed service).
 
-- Your data will stay on the server as long as you don’t delete or overwrite the database file.
+- Data is persisted in the PostgreSQL database; you can manage and back it up using Railway’s tools or a standard SQL client.
 
-- If you need to move or back up your data, you can simply copy the app.db file.
+- For scaling, team collaboration, or cloud deployments, PostgreSQL is the recommended choice.
 
-- For more advanced use (team projects, scaling, etc.), you can switch to PostgreSQL, MySQL, or another supported SQL database by changing the database settings in app/database.py.
+- If you move your app or need to migrate data, use standard PostgreSQL tools (pg_dump, pg_restore, etc.).
+
+#### d. Switching databases
+
+- You can switch between SQLite and PostgreSQL by updating the database connection string in app/database.py and your .env file.
+
+- SQLite is recommended for fast prototyping/local dev; PostgreSQL is required for production and deployment.
 
 ### 7. License
 Apache License.

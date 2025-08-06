@@ -8,16 +8,8 @@ import ResetPassword from "./ResetPassword";
 import RequestPasswordReset from "./RequestPasswordReset";
 import NavBar from "./NavBar";
 import PublicNavBar from "./PublicNavBar";
-
-// Placeholder for user profile page.
-function ProfilePlaceholder() {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh]">
-      <div className="text-2xl font-semibold text-gray-700 mb-2">User Profile</div>
-      <div className="text-gray-500">This page is under construction.</div>
-    </div>
-  );
-}
+import ProfileSetting from "./ProfileSetting";
+import UserProfile from "./UserProfile";
 
 // Main authenticated content (with app nav bar)
 const MainContent = () => {
@@ -25,7 +17,13 @@ const MainContent = () => {
   return (
     <div>
       <NavBar setMenu={setMenu} menu={menu} />
-      <div>{menu === "matcher" ? <ResumeMatcher /> : <ProfilePlaceholder />}</div>
+      {/* Use React Router for actual page routing */}
+      {menu === "matcher" ? (
+        <ResumeMatcher />
+      ) : (
+        // Route to /profile with subroutes (see below)
+        <UserProfile />
+      )}
     </div>
   );
 };
@@ -55,8 +53,25 @@ const App = () => {
   };
 
   if (user) {
-    // Logged in: show app menu
-    return <MainContent />;
+    // Logged in: use React Router for main app, so profile links work!
+    return (
+      <Routes>
+        <Route path="/" element={<MainContent />} />
+        <Route path="/profile/*" element={
+          <>
+            <NavBar setMenu={() => { }} menu="profile" />
+            <UserProfile />
+          </>
+        } />
+        <Route path="/profile/settings/*" element={
+          <>
+            <NavBar setMenu={() => { }} menu="profile" />
+            <ProfileSetting />
+          </>
+        } />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    );
   }
 
   // Not logged in: show public screens with shared purple nav
