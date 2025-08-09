@@ -1,6 +1,9 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { Routes, Route, NavLink, useNavigate } from "react-router-dom";
 import { FiArrowLeft } from "react-icons/fi";
+import axios from "axios";
+import { BASE_URL } from "./api";
+import { useAuth } from "./AuthContext";
 
 // Dummy user info
 const mockUser = {
@@ -13,13 +16,153 @@ const mockUser = {
 };
 
 function ProfileDetails() {
-  const [user] = useState(mockUser);
   const fileInput = useRef();
+
+  // --- NEW: real user state pulled from backend, fallback to mock ---
+  const { user: authUser } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [avatar, setAvatar] = useState(mockUser.avatar);
+  const [firstName, setFirstName] = useState(mockUser.firstName);
+  const [lastName, setLastName] = useState(mockUser.lastName);
+  const [email, setEmail] = useState(mockUser.email);
+  const [profession, setProfession] = useState(mockUser.profession);
+  const [bio, setBio] = useState(mockUser.bio);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    const fetchMe = async () => {
+      try {
+        const token = authUser?.token || localStorage.getItem("token");
+        if (!token) throw new Error("Not logged in");
+        const res = await axios.get(`${BASE_URL}/me/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        // Backend returns: first_name, last_name, email, profile_image_url, profession, bio
+        setAvatar(res.data.profile_image_url || mockUser.avatar);
+        setFirstName(res.data.first_name || "");
+        setLastName(res.data.last_name || "");
+        setEmail(res.data.email || "");
+        setProfession(res.data.profession || "");
+        setBio(res.data.bio || "");
+      } catch (_) {
+        // Fallback to mock if anything fails
+        setAvatar(mockUser.avatar);
+        setFirstName(mockUser.firstName);
+        setLastName(mockUser.lastName);
+        setEmail(mockUser.email);
+        setProfession(mockUser.profession);
+        setBio(mockUser.bio);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMe();
+  }, [authUser]);
+
+  const handleImageUploadClick = () => fileInput.current?.click();
+
+  // --- Upload image to existing /upload-profile-image/ endpoint ---
+  const handleImageChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Show instant preview
+    const preview = URL.createObjectURL(file);
+    const prevAvatar = avatar;
+    setAvatar(preview);
+
+    try {
+      const token = authUser?.token || localStorage.getItem("token");
+      const form = new FormData();
+      form.append("image", file);
+      const res = await axios.post(`${BASE_URL}/upload-profile-image/`, form, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      if (res.data?.profile_image_url) {
+        setAvatar(res.data.profile_image_url);
+        setMsg("Profile image updated.");
+      } else {
+        // rollback if backend didn't return a URL
+        setAvatar(prevAvatar);
+        setMsg("Upload failed. Please try again.");
+      }
+    } catch (err) {
+      // rollback preview on error
+      setAvatar(prevAvatar);
+      setMsg(err.response?.data?.detail || "Upload failed.");
+    } finally {
+      // Revoke the preview blob URL to avoid leaks
+      try {
+        URL.revokeObjectURL(preview);
+      } catch {}
+    }
+  };
+
+  // --- Delete image: clears locally and tries an optional backend endpoint if you add one ---
+  const handleDeleteImage = async () => {
+    const prevAvatar = avatar;
+    setAvatar(""); // immediately reflect deletion in UI
+
+    try {
+      const token = authUser?.token || localStorage.getItem("token");
+      // If you add a small backend route to clear the image, this will call it:
+      // Example FastAPI:
+      // @app.post("/profile/clear-image/") -> sets current_user.profile_image_url = None
+      await axios.post(
+        `${BASE_URL}/profile/clear-image/`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setMsg("Profile image removed.");
+    } catch {
+      // If backend route doesn't exist yet, just keep UI change and show hint
+      setMsg("Image cleared locally. Add /profile/clear-image/ to persist.");
+      // If you prefer to roll back instead, uncomment the next line:
+      // setAvatar(prevAvatar);
+    }
+  };
+
+  // Save Changes button currently prevents default in your code.
+  // If/when you add an endpoint to update profile text fields, call it here.
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setMsg("");
+
+    try {
+      // Example if you add PATCH /profile/update/ on backend:
+      // await axios.patch(`${BASE_URL}/profile/update/`, {
+      //   first_name: firstName,
+      //   last_name: lastName,
+      //   profession,
+      //   bio,
+      //   // email (usually not editable here, but include if your API allows)
+      // }, { headers: { Authorization: `Bearer ${token}` } });
+
+      setMsg("Saved (UI only). Hook this to your update endpoint when ready.");
+    } catch (err) {
+      setMsg(err.response?.data?.detail || "Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="max-w-3xl text-black">Loading profile…</div>
+    );
+  }
+
   return (
-    <form className="max-w-3xl grid grid-cols-2 gap-8" onSubmit={e => e.preventDefault()}>
+    <form className="max-w-3xl grid grid-cols-2 gap-8" onSubmit={handleSubmit}>
       <div className="col-span-2 flex items-center gap-8 mb-6">
         <img
-          src={user.avatar}
+          src={avatar || "https://via.placeholder.com/112?text=No+Avatar"}
           alt="Profile"
           className="w-28 h-28 rounded-full border-4 border-white shadow object-cover"
         />
@@ -27,7 +170,7 @@ function ProfileDetails() {
           <button
             type="button"
             className="bg-gray-900 text-white px-6 py-2 rounded-md font-medium hover:bg-gray-700 transition"
-            onClick={() => fileInput.current.click()}
+            onClick={handleImageUploadClick}
           >
             Change picture
           </button>
@@ -36,22 +179,24 @@ function ProfileDetails() {
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={() => {/* handle image upload */ }}
+            onChange={handleImageChange}
           />
           <button
             type="button"
             className="border border-gray-400 text-gray-700 px-6 py-2 rounded-md font-medium hover:bg-gray-100 transition"
-            onClick={() => {/* handle delete pic */ }}
+            onClick={handleDeleteImage}
           >
             Delete picture
           </button>
+          {msg && <span className="text-sm text-gray-600">{msg}</span>}
         </div>
       </div>
       <div className="col-span-1">
         <label className="block text-gray-700 font-medium mb-1">First name</label>
         <input
           type="text"
-          defaultValue={user.firstName}
+          defaultValue={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
           className="w-full rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-300 bg-white text-black"
         />
       </div>
@@ -59,7 +204,8 @@ function ProfileDetails() {
         <label className="block text-gray-700 font-medium mb-1">Last name</label>
         <input
           type="text"
-          defaultValue={user.lastName}
+          defaultValue={lastName}
+          onChange={(e) => setLastName(e.target.value)}
           className="w-full rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-300 bg-white text-black"
         />
       </div>
@@ -67,7 +213,8 @@ function ProfileDetails() {
         <label className="block text-gray-700 font-medium mb-1">Email</label>
         <input
           type="email"
-          defaultValue={user.email}
+          defaultValue={email}
+          onChange={(e) => setEmail(e.target.value)}
           className="w-full rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-300 bg-white text-black"
         />
       </div>
@@ -75,7 +222,8 @@ function ProfileDetails() {
         <label className="block text-gray-700 font-medium mb-1">Profession</label>
         <input
           type="text"
-          defaultValue={user.profession}
+          defaultValue={profession}
+          onChange={(e) => setProfession(e.target.value)}
           className="w-full rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-300 bg-white text-black"
         />
       </div>
@@ -83,7 +231,8 @@ function ProfileDetails() {
         <label className="block text-gray-700 font-medium mb-1">Bio</label>
         <textarea
           rows={3}
-          defaultValue={user.bio}
+          defaultValue={bio}
+          onChange={(e) => setBio(e.target.value)}
           className="w-full rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-300 bg-white text-black"
         />
       </div>
@@ -91,8 +240,9 @@ function ProfileDetails() {
         <button
           type="submit"
           className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2 rounded-md font-bold transition"
+          disabled={saving}
         >
-          Save Changes
+          {saving ? "Saving..." : "Save Changes"}
         </button>
       </div>
     </form>
@@ -121,7 +271,7 @@ export default function ProfileSetting() {
   const navigate = useNavigate();
 
   return (
-    <div className="flex flex-col items-center justify-center w-full bg-gradient-to-br from-blue-100 to-purple-200 py-10 min-h-[90vh]">
+    <div className="flex flex-col items-center justify-center w/full bg-gradient-to-br from-blue-100 to-purple-200 py-10 min-h-[90vh]">
       {/* Main card */}
       <div className="w-full max-w-6xl mx-auto shadow-xl rounded-2xl bg-white flex"
         style={{ minHeight: "650px" }}
