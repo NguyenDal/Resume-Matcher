@@ -40,7 +40,7 @@ function ProfileDetails() {
         });
 
         // Backend returns: first_name, last_name, email, profile_image_url, profession, bio
-        setAvatar(res.data.profile_image_url || mockUser.avatar);
+        setAvatar(res.data.profile_image_url || "");
         setFirstName(res.data.first_name || "");
         setLastName(res.data.last_name || "");
         setEmail(res.data.email || "");
@@ -96,23 +96,19 @@ function ProfileDetails() {
       setAvatar(prevAvatar);
       setMsg(err.response?.data?.detail || "Upload failed.");
     } finally {
-      // Revoke the preview blob URL to avoid leaks
       try {
         URL.revokeObjectURL(preview);
       } catch {}
     }
   };
 
-  // --- Delete image: clears locally and tries an optional backend endpoint if you add one ---
+  // --- Delete image: clears locally and persists via backend ---
   const handleDeleteImage = async () => {
     const prevAvatar = avatar;
     setAvatar(""); // immediately reflect deletion in UI
 
     try {
       const token = authUser?.token || localStorage.getItem("token");
-      // If you add a small backend route to clear the image, this will call it:
-      // Example FastAPI:
-      // @app.post("/profile/clear-image/") -> sets current_user.profile_image_url = None
       await axios.post(
         `${BASE_URL}/profile/clear-image/`,
         {},
@@ -120,31 +116,34 @@ function ProfileDetails() {
       );
       setMsg("Profile image removed.");
     } catch {
-      // If backend route doesn't exist yet, just keep UI change and show hint
-      setMsg("Image cleared locally. Add /profile/clear-image/ to persist.");
-      // If you prefer to roll back instead, uncomment the next line:
-      // setAvatar(prevAvatar);
+      // If backend route fails for any reason, roll back UI
+      setAvatar(prevAvatar);
+      setMsg("Failed to remove image.");
     }
   };
 
-  // Save Changes button currently prevents default in your code.
-  // If/when you add an endpoint to update profile text fields, call it here.
+  // Save Changes
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     setMsg("");
 
     try {
-      // Example if you add PATCH /profile/update/ on backend:
-      // await axios.patch(`${BASE_URL}/profile/update/`, {
-      //   first_name: firstName,
-      //   last_name: lastName,
-      //   profession,
-      //   bio,
-      //   // email (usually not editable here, but include if your API allows)
-      // }, { headers: { Authorization: `Bearer ${token}` } });
+      const token = authUser?.token || localStorage.getItem("token");
 
-      setMsg("Saved (UI only). Hook this to your update endpoint when ready.");
+      // IMPORTANT: send FormData so FastAPI's Form(...) fields receive values
+      const form = new FormData();
+      form.append("first_name", firstName);
+      form.append("last_name", lastName);
+      form.append("email", email);         // include only if your API allows editing email
+      form.append("profession", profession);
+      form.append("bio", bio);
+
+      await axios.patch(`${BASE_URL}/profile/update/`, form, {
+        headers: { Authorization: `Bearer ${token}` }, // don't set Content-Type manually
+      });
+
+      setMsg("Saved.");
     } catch (err) {
       setMsg(err.response?.data?.detail || "Save failed.");
     } finally {
@@ -153,9 +152,7 @@ function ProfileDetails() {
   };
 
   if (loading) {
-    return (
-      <div className="max-w-3xl text-black">Loading profile…</div>
-    );
+    return <div className="max-w-3xl text-black">Loading profile…</div>;
   }
 
   return (
@@ -195,7 +192,7 @@ function ProfileDetails() {
         <label className="block text-gray-700 font-medium mb-1">First name</label>
         <input
           type="text"
-          defaultValue={firstName}
+          value={firstName}
           onChange={(e) => setFirstName(e.target.value)}
           className="w-full rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-300 bg-white text-black"
         />
@@ -204,7 +201,7 @@ function ProfileDetails() {
         <label className="block text-gray-700 font-medium mb-1">Last name</label>
         <input
           type="text"
-          defaultValue={lastName}
+          value={lastName}
           onChange={(e) => setLastName(e.target.value)}
           className="w-full rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-300 bg-white text-black"
         />
@@ -213,7 +210,7 @@ function ProfileDetails() {
         <label className="block text-gray-700 font-medium mb-1">Email</label>
         <input
           type="email"
-          defaultValue={email}
+          value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="w-full rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-300 bg-white text-black"
         />
@@ -222,7 +219,7 @@ function ProfileDetails() {
         <label className="block text-gray-700 font-medium mb-1">Profession</label>
         <input
           type="text"
-          defaultValue={profession}
+          value={profession}
           onChange={(e) => setProfession(e.target.value)}
           className="w-full rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-300 bg-white text-black"
         />
@@ -231,7 +228,7 @@ function ProfileDetails() {
         <label className="block text-gray-700 font-medium mb-1">Bio</label>
         <textarea
           rows={3}
-          defaultValue={bio}
+          value={bio}
           onChange={(e) => setBio(e.target.value)}
           className="w-full rounded-md border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-blue-300 bg-white text-black"
         />
@@ -271,7 +268,7 @@ export default function ProfileSetting() {
   const navigate = useNavigate();
 
   return (
-    <div className="flex flex-col items-center justify-center w/full bg-gradient-to-br from-blue-100 to-purple-200 py-10 min-h-[90vh]">
+    <div className="flex flex-col items-center justify-center w-full bg-gradient-to-br from-blue-100 to-purple-200 py-10 min-h-[90vh]">
       {/* Main card */}
       <div className="w-full max-w-6xl mx-auto shadow-xl rounded-2xl bg-white flex"
         style={{ minHeight: "650px" }}

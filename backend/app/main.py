@@ -5,7 +5,7 @@ from fastapi import BackgroundTasks
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import PyPDF2
-from docx import Document  # <-- New import for Word support
+from docx import Document
 import openai
 import os
 import re
@@ -475,6 +475,33 @@ def reset_password(
 
     return {"ok": True, "message": "Password has been reset successfully."}
 
+# --- PROFILE UPDATE ENDPOINT ---
+@app.patch("/profile/update/")
+def update_profile(
+    first_name: str = Form(None),
+    last_name: str = Form(None),
+    email: str = Form(None),
+    profession: str = Form(None),
+    bio: str = Form(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if first_name is not None:
+        current_user.first_name = first_name.strip()
+    if last_name is not None:
+        current_user.last_name = last_name.strip()
+    if email is not None:
+        current_user.email = email.strip().lower()
+    if profession is not None:
+        current_user.profession = profession.strip()
+    if bio is not None:
+        current_user.bio = bio.strip()
+    db.commit()
+    db.refresh(current_user)
+    return {"ok": True}
+
+# --- PROFILE IMAGE UPLOAD ENDPOINT ---
+
 @app.post("/upload-profile-image/")
 async def upload_profile_image(
     image: UploadFile = File(...),
@@ -503,3 +530,11 @@ async def upload_profile_image(
     db.refresh(current_user)
 
     return {"ok": True, "profile_image_url": s3_url}
+
+# --- PROFILE IMAGE CLEAR ENDPOINT ---
+
+@app.post("/profile/clear-image/")
+def clear_profile_image(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    current_user.profile_image_url = None
+    db.commit()
+    return {"ok": True}
