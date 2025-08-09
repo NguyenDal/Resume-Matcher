@@ -10,10 +10,21 @@ class User(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    full_name = Column(String, nullable=True)
+    
+    first_name = Column(String, nullable=True)
+    last_name = Column(String, nullable=True)
+
+    profile_image_url = Column(String, nullable=True)
+    profession = Column(String, nullable=True)
+    bio = Column(String, nullable=True)
+
     reset_token = Column(String, unique=True, nullable=True, index=True)
     reset_token_expiration = Column(DateTime, nullable=True)
-    profile_image_url = Column(String, nullable=True)
+
+    @property
+    def full_name(self) -> str:
+        parts = [self.first_name or "", self.last_name or ""]
+        return " ".join([p for p in parts if p]).strip()
 
     def generate_reset_token(self, expires_in=3600):
         self.reset_token = secrets.token_urlsafe(32)

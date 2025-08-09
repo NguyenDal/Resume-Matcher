@@ -357,7 +357,15 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 @app.get("/me/")
 def read_users_me(current_user: User = Depends(get_current_user)):
     """Get details about the currently logged-in user (JWT required)."""
-    return {"id": current_user.id, "username": current_user.username, "full_name": current_user.full_name, "email": current_user.email, "profile_image_url": current_user.profile_image_url}
+    return {"id": current_user.id, 
+            "username": current_user.username, 
+            "full_name": current_user.full_name, 
+            "first_name": current_user.first_name,
+            "last_name": current_user.last_name,
+            "email": current_user.email, 
+            "profile_image_url": current_user.profile_image_url,
+            "profession": current_user.profession,
+            "bio": current_user.bio}
 
 # --- PASSWORD RESET: Step 2a - Generate and return a password reset token ---
 

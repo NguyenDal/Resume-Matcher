@@ -21,9 +21,15 @@ export default function ProfilePage() {
             Authorization: `Bearer ${token}`,
           },
         });
+
+        // Build display name from first + last; fall back to username
+        const displayName =
+          [res.data.first_name, res.data.last_name].filter(Boolean).join(" ").trim() ||
+          res.data.username;
+
         setUser({
           avatar: res.data.profile_image_url,
-          name: res.data.full_name,
+          name: displayName,
           nickname: "@" + res.data.username,
           stats: { posts: 289, followers: "Lorem", following: "45 Ipsum" }, // You can make this dynamic if you have endpoints
         });
@@ -46,23 +52,25 @@ export default function ProfilePage() {
       author: "Jane Doe",
       nickname: "@Nickname",
       time: "30 minutes ago",
-      content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.",
+      content:
+        "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.",
       replies: 163,
       retweets: "3.3K",
       likes: "14.7K",
-      image: null
+      image: null,
     },
     {
       id: 2,
       author: "John Doe",
       nickname: "@Nickname",
       time: "30 minutes ago",
-      content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.",
+      content:
+        "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.",
       replies: 80,
       retweets: 500,
       likes: 2010,
-      image: "https://via.placeholder.com/400x150/7dcfff/fff?text=Post+Image"
-    }
+      image: "https://via.placeholder.com/400x150/7dcfff/fff?text=Post+Image",
+    },
   ];
 
   if (!user) {
@@ -97,9 +105,15 @@ export default function ProfilePage() {
                   <div className="font-extrabold text-2xl text-gray-900">{user.name}</div>
                   <div className="text-gray-500">{user.nickname}</div>
                   <div className="flex gap-8 mt-2 text-gray-600 text-sm font-medium">
-                    <span>{user.stats.posts} <span className="text-gray-400 font-normal">Posts</span></span>
-                    <span>{user.stats.followers} <span className="text-gray-400 font-normal">Followers</span></span>
-                    <span>{user.stats.following} <span className="text-gray-400 font-normal">Following</span></span>
+                    <span>
+                      {user.stats.posts} <span className="text-gray-400 font-normal">Posts</span>
+                    </span>
+                    <span>
+                      {user.stats.followers} <span className="text-gray-400 font-normal">Followers</span>
+                    </span>
+                    <span>
+                      {user.stats.following} <span className="text-gray-400 font-normal">Following</span>
+                    </span>
                   </div>
                 </div>
                 <button
@@ -169,7 +183,9 @@ export default function ProfilePage() {
                     <div className="font-semibold text-sm text-gray-800">Jane Doe</div>
                     <div className="text-xs text-gray-500">@Nickname</div>
                   </div>
-                  <button className="ml-auto px-3 py-1 rounded-2xl bg-blue-100 text-blue-600 font-bold text-xs">Read</button>
+                  <button className="ml-auto px-3 py-1 rounded-2xl bg-blue-100 text-blue-600 font-bold text-xs">
+                    Read
+                  </button>
                 </div>
                 <div className="flex items-center gap-2">
                   <img src={user.avatar} className="w-7 h-7 rounded-full" alt="" />
@@ -177,7 +193,9 @@ export default function ProfilePage() {
                     <div className="font-semibold text-sm text-gray-800">John Doe</div>
                     <div className="text-xs text-gray-500">@Nickname</div>
                   </div>
-                  <button className="ml-auto px-3 py-1 rounded-2xl bg-blue-100 text-blue-600 font-bold text-xs">Read</button>
+                  <button className="ml-auto px-3 py-1 rounded-2xl bg-blue-100 text-blue-600 font-bold text-xs">
+                    Read
+                  </button>
                 </div>
                 <button className="text-blue-500 text-xs mt-2 ml-2">Show more...</button>
               </div>
