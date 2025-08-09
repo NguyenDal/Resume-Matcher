@@ -269,6 +269,8 @@ async def upload_resume(
 @app.post("/register/")
 def register_user(
     username: str = Form(...),
+    first_name: str = Form(...),
+    last_name: str = Form(...),
     email: str = Form(...),
     password: str = Form(...),
     db: Session = Depends(get_db)
@@ -276,12 +278,24 @@ def register_user(
     """
     Register a new user account (requires unique username and email).
     """
+    # Uniqueness checks
     if db.query(User).filter(User.username == username).first():
         raise HTTPException(status_code=400, detail="Username already registered")
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
+
+    # Hash password
     hashed_pw = hash_password(password)
-    new_user = User(username=username, email=email, hashed_password=hashed_pw)
+
+    # Create user with first/last name populated
+    new_user = User(
+        username=username.strip(),
+        email=email.strip().lower(),
+        hashed_password=hashed_pw,
+        first_name=first_name.strip(),
+        last_name=last_name.strip(),
+    )
+
     db.add(new_user)
     try:
         db.commit()
@@ -289,7 +303,14 @@ def register_user(
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=400, detail="Registration failed")
-    return {"id": new_user.id, "username": new_user.username, "email": new_user.email}
+
+    return {
+        "id": new_user.id,
+        "username": new_user.username,
+        "email": new_user.email,
+        "first_name": new_user.first_name,
+        "last_name": new_user.last_name,
+    }
 
 # === USER LOGIN ENDPOINT ===
 
